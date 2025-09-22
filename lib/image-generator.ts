@@ -42,15 +42,27 @@ export class ImageGenerator {
   async generateImage(text: string, options: Partial<ImageOptions> = {}): Promise<string> {
     const opts = { ...defaultImageOptions, ...options }
 
-    // Determine font size; optionally auto-fit
+    // Determine font size; optionally auto-fit to width and scale up to use available space
     const targetWidth = opts.width - 96 - opts.padding * 2
     let workingFontSize = opts.fontSize
     this.ctx.font = `${workingFontSize}px ${opts.fontFamily}`
     if (opts.autoFit) {
       const sampleLine = text.split("\n").reduce((a, b) => (b.length > a.length ? b : a), "")
-      while (workingFontSize > 12 && this.ctx.measureText(sampleLine).width > targetWidth) {
+      // Shrink until it fits
+      while (workingFontSize > 10 && this.ctx.measureText(sampleLine).width > targetWidth) {
         workingFontSize -= 1
         this.ctx.font = `${workingFontSize}px ${opts.fontFamily}`
+      }
+      // Grow back up to utilize space if much smaller than target
+      while (this.ctx.measureText(sampleLine).width < targetWidth * 0.9) {
+        workingFontSize += 1
+        this.ctx.font = `${workingFontSize}px ${opts.fontFamily}`
+        if (this.ctx.measureText(sampleLine).width > targetWidth) {
+          workingFontSize -= 1
+          this.ctx.font = `${workingFontSize}px ${opts.fontFamily}`
+          break
+        }
+        if (workingFontSize > opts.fontSize * 3) break
       }
     }
 

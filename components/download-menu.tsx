@@ -53,8 +53,8 @@ export function DownloadMenu({ text, fontFamily, fontSize, canvasRef, onClose }:
         options = { ...options, format: "webp", quality: 0.9 }
       }
 
-      // Match editor exactly by disabling autoFit when user chooses size
-      const dataUrl = await generator.generateImage(text, { ...options, autoFit: false })
+      // Match the on-screen editor: enable autoFit so text scales to preset or width
+      const dataUrl = await generator.generateImage(text, { ...options, autoFit: true })
 
       // Create download link
       const link = document.createElement("a")
@@ -141,7 +141,7 @@ export function DownloadMenu({ text, fontFamily, fontSize, canvasRef, onClose }:
           </Button>
         </div>
 
-        {navigator.share && (
+        {typeof navigator !== "undefined" && (navigator as any).share && (
           <Button
             onClick={handleShareImage}
             disabled={isGenerating}

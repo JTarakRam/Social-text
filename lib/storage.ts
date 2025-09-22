@@ -17,6 +17,8 @@ const STORAGE_KEY = "snap-editor-history"
 const SETTINGS_KEY = "snap-editor-settings"
 const MAX_SNAPS = 100
 
+const SERVER_HISTORY_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SERVER_HISTORY === "true"
+
 export interface AppSettings {
   autoSave: boolean
   maxHistory: number
@@ -42,6 +44,9 @@ export class SnapStorage {
 
   // Load from server file and mirror to localStorage
   static async syncFromServer(): Promise<SavedSnap[]> {
+    if (!SERVER_HISTORY_ENABLED) {
+      return this.getSnaps()
+    }
     try {
       const res = await fetch('/api/history', { cache: 'no-store' })
       if (!res.ok) return this.getSnaps()
@@ -95,6 +100,7 @@ export class SnapStorage {
   }
 
   private static async persistToServer(snap: SavedSnap): Promise<void> {
+    if (!SERVER_HISTORY_ENABLED) return
     try {
       await fetch('/api/history', {
         method: 'POST',

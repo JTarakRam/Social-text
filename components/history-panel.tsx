@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -47,6 +47,15 @@ export function HistoryPanel({ onClose, onLoadSnap, onDeleteSnap, savedSnaps, on
   const [sortBy, setSortBy] = useState<SortOption>("newest")
   const [filterBy, setFilterBy] = useState<FilterOption>("all")
   const [showBulkActions, setShowBulkActions] = useState(false)
+
+  // Close on Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [onClose])
 
   // Filter and sort snaps
   const processedSnaps = useMemo(() => {
@@ -237,8 +246,14 @@ export function HistoryPanel({ onClose, onLoadSnap, onDeleteSnap, savedSnaps, on
   }
 
   return (
-    <Card className="mt-4 bg-card shadow-lg border-0 p-6 rounded-2xl">
-      <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/30 z-40" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="absolute right-0 top-0 h-full w-full max-w-md z-50">
+        <Card className="h-full bg-card shadow-xl border-l p-6 rounded-none">
+          <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h3 className="font-semibold text-lg">History</h3>
           {stats && (
@@ -248,10 +263,10 @@ export function HistoryPanel({ onClose, onLoadSnap, onDeleteSnap, savedSnaps, on
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-2">
+              <Button variant="ghost" size="sm" className="p-2" aria-label="More actions">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -276,25 +291,25 @@ export function HistoryPanel({ onClose, onLoadSnap, onDeleteSnap, savedSnaps, on
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="ghost" size="sm" onClick={onClose} className="p-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="p-2" aria-label="Close history">
             <X className="w-4 h-4" />
           </Button>
         </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="space-y-3 mb-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search your snaps..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Search and Filters */}
+        <div className="space-y-3 mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search your snaps..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
           {/* Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -342,119 +357,129 @@ export function HistoryPanel({ onClose, onLoadSnap, onDeleteSnap, savedSnaps, on
               {selectedSnaps.size === processedSnaps.length ? "Deselect All" : "Select All"}
             </Button>
           )}
-        </div>
-      </div>
-
-      {/* Bulk Actions */}
-      {showBulkActions && (
-        <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">{selectedSnaps.size} selected</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={handleBulkFavorite}>
-                <Star className="w-4 h-4 mr-1" />
-                Favorite
-              </Button>
-              <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
-                <Trash2 className="w-4 h-4 mr-1" />
-                Delete
-              </Button>
-            </div>
           </div>
         </div>
-      )}
 
-      {/* Stats Display */}
-      {stats && (
-        <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Total Snaps:</span>
-              <span className="ml-2 font-medium">{stats.totalSnaps}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Characters:</span>
-              <span className="ml-2 font-medium">{stats.totalCharacters.toLocaleString()}</span>
+        {/* Bulk Actions */}
+        {showBulkActions && (
+          <div className="mb-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{selectedSnaps.size} selected</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleBulkFavorite}>
+                  <Star className="w-4 h-4 mr-1" />
+                  Favorite
+                </Button>
+                <Button size="sm" variant="destructive" onClick={handleBulkDelete}>
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Snaps List */}
-      {processedSnaps.length === 0 ? (
-        <p className="text-muted-foreground text-center py-8">
-          {searchQuery || filterBy !== "all"
-            ? "No snaps match your criteria."
-            : "No saved snaps yet. Start writing to build your history!"}
-        </p>
-      ) : (
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {processedSnaps.map((snap) => {
-            const isFavorite = snap.tags?.includes("favorite")
-            const isSelected = selectedSnaps.has(snap.id)
+        {/* Stats Display */}
+        {stats && (
+          <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Total Snaps:</span>
+                <span className="ml-2 font-medium">{stats.totalSnaps}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Characters:</span>
+                <span className="ml-2 font-medium">{stats.totalCharacters.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
-            return (
-              <div
-                key={snap.id}
-                className={`group flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors ${
-                  isSelected ? "bg-primary/10 border border-primary/20" : ""
-                }`}
-              >
+        {/* Snaps List */}
+        {processedSnaps.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            {searchQuery || filterBy !== "all"
+              ? "No snaps match your criteria."
+              : "No saved snaps yet. Start writing to build your history!"}
+          </p>
+        ) : (
+          <div className="space-y-3 h-[calc(100%-160px)] overflow-y-auto pr-1">
+            {processedSnaps.map((snap) => {
+              const isFavorite = snap.tags?.includes("favorite")
+              const isSelected = selectedSnaps.has(snap.id)
+
+              return (
+                <div
+                  key={snap.id}
+                  className={`group flex items-start gap-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors ${
+                    isSelected ? "bg-primary/10 border border-primary/20" : ""
+                  }`}
+                >
                 <Checkbox
                   checked={isSelected}
                   onCheckedChange={(checked) => handleSelectSnap(snap.id, checked as boolean)}
                   className="mt-1"
+                  aria-label={isSelected ? "Deselect" : "Select"}
+                  onClick={(e) => e.stopPropagation()}
                 />
 
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onLoadSnap(snap)}>
-                  {snap.title && <h4 className="font-medium text-sm mb-1 truncate">{snap.title}</h4>}
-                  <p className="font-mono text-sm text-foreground/80 line-clamp-2">{snap.text}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <p className="text-xs text-muted-foreground">{formatRelativeTime(snap.timestamp)}</p>
-                    <Badge variant="outline" className="text-xs px-1 py-0">
-                      {snap.text.length} chars
-                    </Badge>
-                    {snap.tags &&
-                      snap.tags
-                        .filter((tag) => tag !== "favorite")
-                        .slice(0, 2)
-                        .map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
-                            {tag}
-                          </Badge>
-                        ))}
+                <button
+                  type="button"
+                  className="flex-1 min-w-0 text-left cursor-pointer"
+                  onClick={() => onLoadSnap(snap)}
+                >
+                    {snap.title && <h4 className="font-medium text-sm mb-1 truncate">{snap.title}</h4>}
+                    <p className="font-mono text-sm text-foreground/80 line-clamp-2">{snap.text}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className="text-xs text-muted-foreground">{formatRelativeTime(snap.timestamp)}</p>
+                      <Badge variant="outline" className="text-xs px-1 py-0">
+                        {snap.text.length} chars
+                      </Badge>
+                      {snap.tags &&
+                        snap.tags
+                          .filter((tag) => tag !== "favorite")
+                          .slice(0, 2)
+                          .map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs px-1 py-0">
+                              {tag}
+                            </Badge>
+                          ))}
+                    </div>
+                </button>
+
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleFavorite(snap)
+                      }}
+                      className="p-1"
+                      aria-label={isFavorite ? "Unfavorite" : "Favorite"}
+                    >
+                      {isFavorite ? <Star className="w-3 h-3 fill-current" /> : <StarOff className="w-3 h-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDeleteSnap(snap.id)
+                      }}
+                      className="p-1"
+                      aria-label="Delete snap"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleFavorite(snap)
-                    }}
-                    className="p-1"
-                  >
-                    {isFavorite ? <Star className="w-3 h-3 fill-current" /> : <StarOff className="w-3 h-3" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDeleteSnap(snap.id)
-                    }}
-                    className="p-1"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </Card>
+              )
+            })}
+          </div>
+        )}
+        </Card>
+      </div>
+    </div>
   )
 }

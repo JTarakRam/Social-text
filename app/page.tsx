@@ -23,20 +23,36 @@ const FONT_OPTIONS = [
 ]
 
 const SIZE_OPTIONS = [
-  { id: "s", name: "Small", px: 16 },
-  { id: "m", name: "Medium", px: 20 },
-  { id: "l", name: "Large", px: 24 },
-  { id: "xl", name: "XL", px: 28 },
+  { id: "10", name: "10", px: 10 },
+  { id: "11", name: "11", px: 11 },
+  { id: "12", name: "12", px: 12 },
+  { id: "13", name: "13", px: 13 },
+  { id: "14", name: "14", px: 14 },
+  { id: "15", name: "15", px: 15 },
+  { id: "16", name: "16", px: 16 },
+  { id: "17", name: "17", px: 17 },
+  { id: "18", name: "18", px: 18 },
+  { id: "19", name: "19", px: 19 },
+  { id: "20", name: "20", px: 20 },
+  { id: "21", name: "21", px: 21 },
+  { id: "22", name: "22", px: 22 },
+  { id: "23", name: "23", px: 23 },
+  { id: "24", name: "24", px: 24 },
+  { id: "25", name: "25", px: 25 },
+  { id: "26", name: "26", px: 26 },
+  { id: "27", name: "27", px: 27 },
+  { id: "28", name: "28", px: 28 },
 ]
 
 export default function SnapEditor() {
   const [text, setText] = useState("")
   const [selectedFontId, setSelectedFontId] = useState<string>("jetbrains")
-  const [selectedSizeId, setSelectedSizeId] = useState<string>("l")
+  const [selectedSizeId, setSelectedSizeId] = useState<string>("16")
   const [showHistory, setShowHistory] = useState(false)
   const [showFontSelector, setShowFontSelector] = useState(false)
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
   const [savedSnaps, setSavedSnaps] = useState<SavedSnap[]>([])
+  const [showSizeSelector, setShowSizeSelector] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -44,14 +60,17 @@ export default function SnapEditor() {
   const selectedFontSize = SIZE_OPTIONS.find((s) => s.id === selectedSizeId)?.px || 24
 
   const autoSave = useCallback(() => {
-    if (text.trim()) {
-      SnapStorage.saveSnap(text)
+    const trimmed = text.trim()
+    if (!trimmed) return
+    const latest = savedSnaps[0]
+    if (!latest || latest.text !== trimmed) {
+      SnapStorage.saveSnap(trimmed)
       setSavedSnaps(SnapStorage.getSnaps())
     }
-  }, [text])
+  }, [text, savedSnaps])
 
   useEffect(() => {
-    const timer = setTimeout(autoSave, 1000)
+    const timer = setTimeout(autoSave, 1200)
     return () => clearTimeout(timer)
   }, [autoSave])
 
@@ -60,12 +79,46 @@ export default function SnapEditor() {
     setSavedSnaps(SnapStorage.getSnaps())
   }, [])
 
+  // Load persisted preferred size on mount (fallback to 16)
+  useEffect(() => {
+    try {
+      const savedSize = localStorage.getItem("snap-editor-selected-size")
+      if (savedSize && SIZE_OPTIONS.some((s) => s.id === savedSize)) {
+        setSelectedSizeId(savedSize)
+      }
+    } catch {}
+  }, [])
+
+  // Persist size preference when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("snap-editor-selected-size", selectedSizeId)
+    } catch {}
+  }, [selectedSizeId])
+
+  // Load persisted preferred font on mount
+  useEffect(() => {
+    try {
+      const savedFont = localStorage.getItem("snap-editor-selected-font")
+      if (savedFont && FONT_OPTIONS.some((f) => f.id === savedFont)) {
+        setSelectedFontId(savedFont)
+      }
+    } catch {}
+  }, [])
+
+  // Persist font preference when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("snap-editor-selected-font", selectedFontId)
+    } catch {}
+  }, [selectedFontId])
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto"
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
     }
-  }, [text])
+  }, [text, selectedFontSize])
 
   const loadFromHistory = (snap: SavedSnap) => {
     setText(snap.text)
@@ -82,18 +135,19 @@ export default function SnapEditor() {
     SnapStorage.syncFromServer().then((snaps) => setSavedSnaps(snaps))
   }, [])
 
-  // Close menus when clicking outside
+  // Close history when clicking outside (avoid interfering with font/size selects)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (!target.closest("[data-menu]")) {
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element
+      if (!target.closest('[data-menu]') && !target.closest('[data-radix-portal]')) {
         setShowHistory(false)
-        setShowFontSelector(false)
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener("mousedown", onDown)
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+    }
   }, [])
 
   return (
@@ -109,6 +163,7 @@ export default function SnapEditor() {
             setShowDownloadMenu(false)
           }}
           className="p-2 hover:bg-secondary"
+          aria-label="Toggle history"
         >
           <History className="w-4 h-4" />
         </Button>
@@ -123,6 +178,7 @@ export default function SnapEditor() {
               setShowHistory(false)
             }}
             className="p-2 hover:bg-secondary"
+            aria-label="Open download menu"
           >
             <Download className="w-4 h-4" />
           </Button>
@@ -147,6 +203,7 @@ export default function SnapEditor() {
               setShowDownloadMenu(false)
             }}
             className="p-2 hover:bg-secondary"
+            aria-label="Open font selector"
           >
             <Type className="w-4 h-4" />
           </Button>
@@ -155,7 +212,13 @@ export default function SnapEditor() {
           {showFontSelector && (
             <div className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
               <div className="p-2">
-                <Select value={selectedFontId} onValueChange={setSelectedFontId}>
+                <Select
+                  value={selectedFontId}
+                  onValueChange={(value) => {
+                    setSelectedFontId(value)
+                    // Do not close here; let user preview multiple fonts quickly
+                  }}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select font" />
                   </SelectTrigger>
@@ -178,29 +241,40 @@ export default function SnapEditor() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              // toggle using existing font selector state for simplicity
+              setShowSizeSelector((v) => !v)
+              setShowHistory(false)
               setShowFontSelector(false)
+              setShowDownloadMenu(false)
             }}
-            className="p-2 cursor-default"
+            className="p-2"
+            aria-label="Open text size selector"
           >
             <span className="text-sm">{selectedFontSize}px</span>
           </Button>
-          <div className="absolute top-full right-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-lg z-50">
-            <div className="p-2">
-              <Select value={selectedSizeId} onValueChange={setSelectedSizeId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Text size" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SIZE_OPTIONS.map((size) => (
-                    <SelectItem key={size.id} value={size.id}>
-                      {size.name} ({size.px}px)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {showSizeSelector && (
+            <div className="absolute top-full right-0 mt-2 w-40 bg-card border border-border rounded-lg shadow-lg z-50">
+              <div className="p-2">
+                <Select
+                  value={selectedSizeId}
+                  onValueChange={(value) => {
+                    setSelectedSizeId(value)
+                    // Do not close here; let user experiment without closing
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Text size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size.id} value={size.id}>
+                        {size.name} ({size.px}px)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -217,12 +291,13 @@ export default function SnapEditor() {
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
           </div>
           {/* Text Content */}
-          <div>
+          <div style={{ fontFamily: selectedFontCss, fontSize: selectedFontSize }}>
             <Textarea
+              key={selectedFontSize}
               ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="min-h-[280px] border-0 bg-transparent resize-none focus:ring-0 p-0 leading-relaxed"
+              className="min-h-[280px] border-0 bg-transparent resize-none focus:ring-0 leading-relaxed p-6"
               style={{ fontFamily: selectedFontCss, fontSize: selectedFontSize }}
               placeholder="Start typing your thoughts..."
               autoFocus
