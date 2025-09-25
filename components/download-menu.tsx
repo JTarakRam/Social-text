@@ -5,202 +5,53 @@ import type React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Download, X, ImageIcon, FileText, Share2 } from "lucide-react"
-import { ImageGenerator, type ImageOptions } from "@/lib/image-generator"
+import { Download, X } from "lucide-react"
+import { toPng } from "html-to-image"
+import { toast } from "sonner"
 
 interface DownloadMenuProps {
-  readonly text: string
-  readonly fontFamily: string
-  readonly fontSize?: number
-  readonly canvasRef: React.RefObject<HTMLCanvasElement>
   readonly onClose: () => void
+  readonly cardElementRef?: React.RefObject<HTMLDivElement>
 }
 
-export function DownloadMenu({ text, fontFamily, fontSize, canvasRef, onClose }: DownloadMenuProps) {
+export function DownloadMenu({ onClose, cardElementRef }: DownloadMenuProps) {
   const [isGenerating, setIsGenerating] = useState(false)
-  const [selectedFormat, setSelectedFormat] = useState<string>("default")
 
-  const formats = [
-    { id: "default", name: "Default (PNG)", description: "High quality, transparent background support" },
-    { id: "jpeg", name: "JPEG", description: "Smaller file size, good for sharing" },
-    { id: "webp", name: "WebP", description: "Modern format, best compression" },
-  ]
-
-  const socialPresets = [
-    { id: "instagram-square", name: "Instagram Square", size: "1080×1080" },
-    { id: "instagram-story", name: "Instagram Story", size: "1080×1920" },
-    { id: "twitter-post", name: "Twitter Post", size: "1200×675" },
-    { id: "facebook-post", name: "Facebook Post", size: "1200×630" },
-    { id: "linkedin-post", name: "LinkedIn Post", size: "1200×627" },
-  ]
-
-  const handleDownload = async (presetId?: string) => {
-    if (!canvasRef.current) return
-
+  const handleDownload = async () => {
+    const node = cardElementRef?.current
+    if (!node) return
     setIsGenerating(true)
-
     try {
-      const generator = new ImageGenerator(canvasRef.current)
-      let options: Partial<ImageOptions> = { fontFamily, fontSize }
+      const dataUrl = await toPng(node, { pixelRatio: 3, cacheBust: true })
 
-      if (presetId && presetId !== "default") {
-        const presets = ImageGenerator.getSocialMediaPresets()
-        options = { ...options, ...(presets[presetId] || {}) }
-      } else if (selectedFormat === "jpeg") {
-        options = { ...options, format: "jpeg", quality: 0.9 }
-      } else if (selectedFormat === "webp") {
-        options = { ...options, format: "webp", quality: 0.9 }
-      }
-
-      // Match the on-screen editor: enable autoFit so text scales to preset or width
-      const dataUrl = await generator.generateImage(text, { ...options, autoFit: true })
-
-      // Create download link
       const link = document.createElement("a")
       const timestamp = new Date().toISOString().split("T")[0]
-      const formatExt = options.format || "png"
-      const filename = presetId ? `snap-${presetId}-${timestamp}.${formatExt}` : `snap-${timestamp}.${formatExt}`
-
-      link.download = filename
+      link.download = `snap-${timestamp}.png`
       link.href = dataUrl
       link.click()
+      toast.success("Image downloaded")
     } catch (error) {
       console.error("Error generating image:", error)
-      alert("Failed to generate image. Please try again.")
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
-  const handleShareText = async () => {
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "My Snap",
-          text: text,
-        })
-      } else {
-        await navigator.clipboard.writeText(text)
-        alert("Text copied to clipboard!")
-      }
-    } catch {
-      await navigator.clipboard.writeText(text)
-      alert("Text copied to clipboard!")
-    }
-  }
-
-  const handleShareImage = async () => {
-    if (!canvasRef.current || !navigator.share) {
-      alert("Image sharing not supported on this device")
-      return
-    }
-
-    setIsGenerating(true)
-
-    try {
-      const generator = new ImageGenerator(canvasRef.current)
-      const dataUrl = await generator.generateImage(text)
-
-      // Convert data URL to blob
-      const response = await fetch(dataUrl)
-      const blob = await response.blob()
-      const file = new File([blob], `snap-${Date.now()}.png`, { type: "image/png" })
-
-      await navigator.share({
-        title: "My Snap",
-        files: [file],
-      })
-    } catch (error) {
-      console.error("Error sharing image:", error)
-      alert("Failed to share image. Please try downloading instead.")
+      toast.error("Failed to generate image. Please try again.")
     } finally {
       setIsGenerating(false)
     }
   }
 
   return (
-    <Card className="absolute top-16 right-0 w-80 bg-card shadow-lg border-0 p-4 rounded-xl z-10">
+    <Card className="fixed top-24 right-6 w-80 max-h-[36rem] overflow-y-auto bg-card shadow-lg border-0 p-4 rounded-xl z-50">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold">Download & Share</h3>
+        <h3 className="font-semibold">Download</h3>
         <Button variant="ghost" size="sm" onClick={onClose} className="p-1">
           <X className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Quick Actions */}
-      <div className="space-y-3 mb-6">
-        <div className="flex gap-2">
-          <Button onClick={() => handleDownload()} disabled={isGenerating} className="flex-1" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Download Image
-          </Button>
-          <Button onClick={handleShareText} variant="outline" size="sm">
-            <FileText className="w-4 h-4 mr-2" />
-            Share Text
-          </Button>
-        </div>
-
-        {typeof navigator !== "undefined" && (navigator as any).share && (
-          <Button
-            onClick={handleShareImage}
-            disabled={isGenerating}
-            variant="outline"
-            className="w-full bg-transparent"
-            size="sm"
-          >
-            <Share2 className="w-4 h-4 mr-2" />
-            Share Image
-          </Button>
-        )}
-      </div>
-
-      {/* Format Selection */}
-      <div className="mb-6">
-        <h4 className="text-sm font-medium mb-2">Format</h4>
-        <div className="grid grid-cols-1 gap-2">
-          {formats.map((format) => (
-            <button
-              key={format.id}
-              type="button"
-              className={`text-left p-2 rounded-lg border transition-colors ${
-                selectedFormat === format.id ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/50"
-              }`}
-              onClick={() => setSelectedFormat(format.id)}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{format.name}</span>
-                {selectedFormat === format.id && (
-                  <Badge variant="default" className="text-xs">
-                    Selected
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{format.description}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Social Media Presets */}
-      <div>
-        <h4 className="text-sm font-medium mb-2">Social Media Formats</h4>
-        <div className="space-y-2">
-          {socialPresets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              className="flex items-center justify-between w-full p-2 rounded-lg border border-border hover:bg-secondary/50 transition-colors"
-              onClick={() => handleDownload(preset.id)}
-            >
-              <div>
-                <span className="text-sm font-medium">{preset.name}</span>
-                <p className="text-xs text-muted-foreground">{preset.size}</p>
-              </div>
-              <ImageIcon className="w-4 h-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
+      <div className="space-y-3 mb-2">
+        <Button onClick={handleDownload} disabled={isGenerating} className="w-full" size="sm">
+          <Download className="w-4 h-4 mr-2" />
+          Download Image
+        </Button>
       </div>
 
       {isGenerating && (
